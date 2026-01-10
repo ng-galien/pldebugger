@@ -17,29 +17,15 @@ jobs:
         image:
           - bullseye
           - bookworm
-        platform: 
-          - linux/amd64
+        platform:
           - linux/amd64,linux/arm64
         version:
-          - 11
-          - 12
           - 13
           - 14
           - 15
           - 16
-        exclude:
-          - platform: linux/amd64,linux/arm64
-            version: 11
-          - platform: linux/amd64,linux/arm64
-            version: 12
-          - platform: linux/amd64,linux/arm64
-            version: 13
-          - platform: linux/amd64
-            version: 14
-          - platform: linux/amd64
-            version: 15
-          - platform: linux/amd64
-            version: 16
+          - 17
+          - 18
 
     steps:
       - name: Checkout code
