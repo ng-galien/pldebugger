@@ -1,5 +1,6 @@
 *.o
 *.bc
 *.so
+*.dll
 .vscode
 vcpkg

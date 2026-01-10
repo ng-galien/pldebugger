@@ -3,7 +3,7 @@
  *
  * This file contains some helper functions for the proxy - target
  * communication.
- * Copyright (c) 2004-2018 EnterpriseDB Corporation. All Rights Reserved.
+ * Copyright (c) 2004-2024 EnterpriseDB Corporation. All Rights Reserved.
  *
  * Licensed under the Artistic License v2.0, see
  *		https://opensource.org/licenses/artistic-license-2.0
@@ -25,7 +25,9 @@
 #include <arpa/inet.h>
 
 #include "miscadmin.h"
+#if (PG_VERSION_NUM < 170000)
 #include "storage/backendid.h"
+#endif
 #include "storage/lwlock.h"
 #include "storage/pmsignal.h"
 #include "storage/shmem.h"

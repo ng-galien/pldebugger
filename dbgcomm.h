@@ -4,7 +4,7 @@
  * This file defines the functions used to establish connections between
  * the debugging proxy and target backend.
  *
- * Copyright (c) 2004-2018 EnterpriseDB Corporation. All Rights Reserved.
+ * Copyright (c) 2004-2024 EnterpriseDB Corporation. All Rights Reserved.
  *
  * Licensed under the Artistic License v2.0, see
  *		https://opensource.org/licenses/artistic-license-2.0
@@ -12,6 +12,12 @@
  */
 #ifndef DBGCOMM_H
 #define DBGCOMM_H
+
+#if (PG_VERSION_NUM >= 170000)
+#define BackendId ProcNumber
+#define MyBackendId MyProcNumber
+#define InvalidBackendId INVALID_PROC_NUMBER
+#endif
 
 extern void dbgcomm_reserve(void);
 

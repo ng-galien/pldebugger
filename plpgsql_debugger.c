@@ -702,11 +702,7 @@ print_rec(const PLpgSQL_execstate *frame, const char *var_name, int lineno,
 	{
 		char * extval = SPI_getvalue( tuple, rec_tupdesc, attNo + 1 );
 
-#if (PG_VERSION_NUM >= 110000)
-		dbg_send( "v:%s.%s:%s\n", var_name, NameStr( rec_tupdesc->attrs[attNo].attname ), extval ? extval : "NULL" );
-#else
-		dbg_send( "v:%s.%s:%s\n", var_name, NameStr( rec_tupdesc->attrs[attNo]->attname ), extval ? extval : "NULL" );
-#endif
+		dbg_send( "v:%s.%s:%s\n", var_name, NameStr( TupleDescAttr(rec_tupdesc, attNo)->attname ), extval ? extval : "NULL" );
 
 		if( extval )
 			pfree( extval );
@@ -1145,8 +1141,6 @@ plpgsql_do_deposit(ErrorContextCallback *frame, const char *var_name,
 		MemoryContextSwitchTo( curContext );
 		CurrentResourceOwner = curOwner;
 
-		SPI_restore_connection();
-
 		/* That worked, don't try again */
 		retval = true;
 	}
@@ -1160,8 +1154,6 @@ plpgsql_do_deposit(ErrorContextCallback *frame, const char *var_name,
 		RollbackAndReleaseCurrentSubTransaction();
 		MemoryContextSwitchTo( curContext );
 		CurrentResourceOwner = curOwner;
-
-		SPI_restore_connection();
 
 		/* That failed - try again as a literal */
 		retval = false;
@@ -1203,8 +1195,6 @@ plpgsql_do_deposit(ErrorContextCallback *frame, const char *var_name,
 			MemoryContextSwitchTo( curContext );
 			CurrentResourceOwner = curOwner;
 
-			SPI_restore_connection();
-
 			retval = true;
 		}
 		PG_CATCH();
@@ -1217,8 +1207,6 @@ plpgsql_do_deposit(ErrorContextCallback *frame, const char *var_name,
 			RollbackAndReleaseCurrentSubTransaction();
 			MemoryContextSwitchTo( curContext );
 			CurrentResourceOwner = curOwner;
-
-			SPI_restore_connection();
 
 			retval = false;
 		}

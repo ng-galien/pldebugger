@@ -4,7 +4,7 @@
 ## interpreter plugin, and a set of functions that form an SQL interface
 ## to the PL/pgSQL debugger.
 ##
-## Copyright (c) 2004-2018 EnterpriseDB Corporation. All Rights Reserved.
+## Copyright (c) 2004-2024 EnterpriseDB Corporation. All Rights Reserved.
 ##
 ## Licensed under the Artistic License v2.0, see 
 ##		https://opensource.org/licenses/artistic-license-2.0
@@ -18,7 +18,7 @@ ifdef INCLUDE_PACKAGE_SUPPORT
 OBJS += spl_debugger.o
 endif
 DATA       = pldbgapi--1.1.sql pldbgapi--unpackaged--1.1.sql pldbgapi--1.0--1.1.sql
-DOCS	   = README.pldebugger
+DOCS	   = README-pldebugger.md
 
 # PGXS build needs PostgreSQL 9.2 or later. Earlier versions didn't install
 # plpgsql.h, so you needed the full source tree to access it.
