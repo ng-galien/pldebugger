@@ -26,6 +26,12 @@ jobs:
           - 16
           - 17
           - 18
+        exclude:
+          # PG 17-18 not available on bullseye, only bookworm/trixie
+          - image: bullseye
+            version: 17
+          - image: bullseye
+            version: 18
 
     steps:
       - name: Checkout code
