@@ -28,6 +28,7 @@
 #if (PG_VERSION_NUM < 170000)
 #include "storage/backendid.h"
 #endif
+#include "storage/procarray.h"
 #include "storage/lwlock.h"
 #include "storage/pmsignal.h"
 #include "storage/shmem.h"
@@ -628,6 +629,20 @@ findFreeTargetSlot(void)
 			 */
 			elog(LOG, "found leftover debugging target slot for backend %d",
 				 MyBackendId);
+			return i;
+		}
+
+		/*
+		 * A slot whose owner backend died while waiting for a proxy (killed
+		 * during accept()/connect()) is never released by its owner — there
+		 * is no proc_exit hook for it. Reclaim it here, otherwise leaked
+		 * slots accumulate until no target can register anymore.
+		 */
+		if (dbgcomm_slots[i].pid != 0 &&
+			BackendPidGetProc(dbgcomm_slots[i].pid) == NULL)
+		{
+			elog(LOG, "reclaiming debugging target slot leaked by dead backend %d (pid %d)",
+				 dbgcomm_slots[i].backendid, dbgcomm_slots[i].pid);
 			return i;
 		}
 	}
