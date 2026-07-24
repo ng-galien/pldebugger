@@ -20,13 +20,16 @@ static bool mustConvertToJSONB(Oid oid)
 {
 	HeapTuple	       typeTup;
 	Form_pg_type       typeStruct;
+	bool               isRecord;
 	typeTup = SearchSysCache(TYPEOID, ObjectIdGetDatum( oid ), 0, 0, 0);
 	if(!HeapTupleIsValid(typeTup))
 	{
 		return false;
 	}
 	typeStruct = (Form_pg_type)GETSTRUCT( typeTup );
-	return strcmp(NameStr(typeStruct->typname), "record") == 0;
+	isRecord = strcmp(NameStr(typeStruct->typname), "record") == 0;
+	ReleaseSysCache(typeTup);
+	return isRecord;
 }
 
 static void spi_call(const char* call, StringInfo stringInfo, Datum value, Oid oid) {
