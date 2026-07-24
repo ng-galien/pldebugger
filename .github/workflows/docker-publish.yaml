@@ -15,8 +15,8 @@ jobs:
     strategy:
       matrix:
         image:
-          - bullseye
           - bookworm
+          - trixie
         platform:
           - linux/amd64,linux/arm64
         version:
@@ -26,34 +26,28 @@ jobs:
           - 16
           - 17
           - 18
-        exclude:
-          # PG 17-18 not available on bullseye, only bookworm/trixie
-          - image: bullseye
-            version: 17
-          - image: bullseye
-            version: 18
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: print-vars
-          
+
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push bullseye
-        if: matrix.image == 'bullseye'
-        uses: docker/build-push-action@v4
+      - name: Build and push bookworm
+        if: matrix.image == 'bookworm'
+        uses: docker/build-push-action@v6
         with:
           context: docker
           platforms: ${{ matrix.platform }}
@@ -63,9 +57,9 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.PG_IMAGE }}:${{ matrix.version }}-${{ matrix.image }}
 
-      - name: Build and push bookworm
-        if: matrix.image == 'bookworm'
-        uses: docker/build-push-action@v4
+      - name: Build and push trixie
+        if: matrix.image == 'trixie'
+        uses: docker/build-push-action@v6
         with:
           context: docker
           platforms: ${{ matrix.platform }}
@@ -73,8 +67,18 @@ jobs:
             TAG=${{ matrix.version }}
             BASE_IMAGE=${{ matrix.version }}-${{ matrix.image }}
           push: true
-          tags: | 
+          tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.PG_IMAGE }}:${{ matrix.version }}-${{ matrix.image }}
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.PG_IMAGE }}:${{ matrix.version }}
 
-  
+  # GitHub disables scheduled workflows after 60 days without repository
+  # activity; this resets the counter on every monthly run.
+  keepalive:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Keep scheduled workflow enabled
+        uses: gautamkrishnar/keepalive-workflow@v2
+        with:
+          use_api: true
