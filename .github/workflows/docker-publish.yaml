@@ -79,6 +79,6 @@ jobs:
       actions: write
     steps:
       - name: Keep scheduled workflow enabled
-        uses: gautamkrishnar/keepalive-workflow@v2
-        with:
-          use_api: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/docker-publish.yaml/enable"
