@@ -95,6 +95,7 @@ static void dbgcomm_init(void);
 static uint32 resolveHostName(const char *hostName);
 static int findFreeTargetSlot(void);
 static int findTargetSlot(BackendId backendid);
+static void releaseTargetSlot(int slot);
 
 /**********************************************************************
  * Initialization routines
@@ -133,6 +134,8 @@ dbgcomm_init(void)
 		{
 			dbgcomm_slots[i].backendid = InvalidBackendId;
 			dbgcomm_slots[i].status = DBGCOMM_IDLE;
+			dbgcomm_slots[i].pid = 0;
+			dbgcomm_slots[i].port = 0;
 		}
 	}
 	LWLockRelease(getPLDebuggerLock());
@@ -241,9 +244,7 @@ dbgcomm_connect_to_proxy(int proxyPort)
 		 * the proxy.
 		 */
 		LWLockAcquire(getPLDebuggerLock(), LW_EXCLUSIVE);
-		dbgcomm_slots[slot].status = DBGCOMM_IDLE;
-		dbgcomm_slots[slot].backendid = InvalidBackendId;
-		dbgcomm_slots[slot].port = 0;
+		releaseTargetSlot(slot);
 		LWLockRelease(getPLDebuggerLock());
 		return -1;
 	}
@@ -349,8 +350,7 @@ dbgcomm_listen_for_proxy(void)
 		if (dbgcomm_slots[slot].status == DBGCOMM_PROXY_CONNECTING &&
 			dbgcomm_slots[slot].port == ntohs(remoteaddr.sin_port))
 		{
-			dbgcomm_slots[slot].backendid = InvalidBackendId;
-			dbgcomm_slots[slot].status = DBGCOMM_IDLE;
+			releaseTargetSlot(slot);
 			done = true;
 		}
 		else
@@ -528,7 +528,7 @@ dbgcomm_accept_target(int sockfd, int *targetPid)
 				dbgcomm_slots[i].port == ntohs(remoteaddr.sin_port))
 			{
 				*targetPid = dbgcomm_slots[i].pid;
-				dbgcomm_slots[i].status = DBGCOMM_IDLE;
+				releaseTargetSlot(i);
 				break;
 			}
 		}
@@ -631,15 +631,16 @@ findFreeTargetSlot(void)
 				 MyBackendId);
 			return i;
 		}
+	}
 
-		/*
-		 * A slot whose owner backend died while waiting for a proxy (killed
-		 * during accept()/connect()) is never released by its owner — there
-		 * is no proc_exit hook for it. Reclaim it here, otherwise leaked
-		 * slots accumulate until no target can register anymore.
-		 */
-		if (dbgcomm_slots[i].pid != 0 &&
-			BackendPidGetProc(dbgcomm_slots[i].pid) == NULL)
+	/*
+	 * All slots are taken. A backend that died in mid-handshake never
+	 * releases its slot (this also covers kill -9), so reclaim the first
+	 * slot whose owner is gone.
+	 */
+	for (i = 0; i < NumTargetSlots; i++)
+	{
+		if (BackendPidGetProc(dbgcomm_slots[i].pid) == NULL)
 		{
 			elog(LOG, "reclaiming debugging target slot leaked by dead backend %d (pid %d)",
 				 dbgcomm_slots[i].backendid, dbgcomm_slots[i].pid);
@@ -647,6 +648,20 @@ findFreeTargetSlot(void)
 		}
 	}
 	return -1;
+}
+
+/*
+ * Reset a slot to its unclaimed state.
+ *
+ * Note: Caller must be holding the lock.
+ */
+static void
+releaseTargetSlot(int slot)
+{
+	dbgcomm_slots[slot].backendid = InvalidBackendId;
+	dbgcomm_slots[slot].status = DBGCOMM_IDLE;
+	dbgcomm_slots[slot].pid = 0;
+	dbgcomm_slots[slot].port = 0;
 }
 
 
