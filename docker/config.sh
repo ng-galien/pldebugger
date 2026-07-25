@@ -1,3 +1,5 @@
 #!/bin/bash
+set -e
 
-sed -i "s/#shared_preload_libraries = ''/shared_preload_libraries = 'plugin_debugger'/g" /var/lib/postgresql/data/postgresql.conf
+printf "\nshared_preload_libraries = 'plugin_debugger'\n" \
+  >> "$PGDATA/postgresql.conf"

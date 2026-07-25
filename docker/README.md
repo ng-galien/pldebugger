@@ -4,8 +4,8 @@ PostgreSQL images with the [pldebugger](https://github.com/ng-galien/pldebugger)
 extension preinstalled and preconfigured, ready to debug PL/pgSQL functions from
 pgAdmin or any client speaking the `pldbgapi` protocol.
 
-This build uses the `print-vars` branch of the fork, which adds enhanced variable
-printing (RECORD type support) on top of the upstream
+This build uses the exact repository revision selected by the workflow, which
+adds enhanced variable printing (RECORD type support) on top of the upstream
 [EnterpriseDB/pldebugger](https://github.com/EnterpriseDB/pldebugger) extension.
 
 Images are published on Docker Hub as
@@ -47,11 +47,10 @@ Then attach a graphical debugger (pgAdmin: right-click a function → *Debugging
 
 `Dockerfile` starts from the official `postgres:<BASE_IMAGE>` image and:
 
-1. installs the build toolchain and `postgresql-server-dev-<TAG>`;
-2. clones the matching `REL_<TAG>_STABLE` branch of PostgreSQL (needed as build
-   tree for PGXS) and the `print-vars` branch of this repository into `contrib/`;
-3. builds and installs the extension with `make USE_PGXS=1 install`;
-4. removes sources and the toolchain to keep the image small;
+1. starts a builder stage with `postgresql-server-dev-<TAG>`;
+2. copies the checked-out repository revision into that stage;
+3. builds and installs the extension with PGXS;
+4. copies only the installed extension into a clean PostgreSQL image;
 5. drops `config.sh` into `/docker-entrypoint-initdb.d/` to enable
    `plugin_debugger` automatically on first startup.
 
@@ -64,17 +63,23 @@ export PG_VERSION=18 \
   && export DOCKER_USER=galien0xffffff \
   && export BASE_IMAGE="${PG_VERSION}-trixie"
 
-docker buildx build --platform $PG_PLATFORM \
+docker buildx build --platform "$PG_PLATFORM" \
+  --file docker/Dockerfile \
   --build-arg "TAG=$PG_VERSION" \
   --build-arg "BASE_IMAGE=$BASE_IMAGE" \
-  -t "$DOCKER_USER/$PG_IMAGE:$PG_VERSION" .
+  --tag "$DOCKER_USER/$PG_IMAGE:$PG_VERSION" .
 ```
 
-## CI
+## CI and publication
 
-Publication is automated by
-[`.github/workflows/docker-publish.yaml`](../.github/workflows/docker-publish.yaml):
-a monthly cron (plus manual `workflow_dispatch`) builds the full
-version × variant matrix multi-arch and pushes to Docker Hub. A keepalive job
-prevents GitHub from disabling the schedule after 60 days of repository
-inactivity.
+Pushes to `master` and `print-vars`, as well as every pull request, run
+[`ci.yaml`](../.github/workflows/ci.yaml). It builds the exact commit for
+PostgreSQL 13 through 18 and starts each image to load `pldbgapi` and query the
+proxy API.
+
+Publication is handled separately by
+[`docker-publish.yaml`](../.github/workflows/docker-publish.yaml). A monthly
+cron (plus manual `workflow_dispatch`) builds the complete version × Debian
+variant matrix for `linux/amd64` and `linux/arm64`, then pushes it to Docker
+Hub. A keepalive job prevents GitHub from disabling the schedule after 60 days
+of repository inactivity.
