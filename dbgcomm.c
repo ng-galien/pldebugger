@@ -28,9 +28,10 @@
 #if (PG_VERSION_NUM < 170000)
 #include "storage/backendid.h"
 #endif
-#include "storage/procarray.h"
 #include "storage/lwlock.h"
 #include "storage/pmsignal.h"
+#include "storage/proc.h"
+#include "storage/procarray.h"
 #include "storage/shmem.h"
 #include "storage/sinvaladt.h"
 
@@ -96,6 +97,7 @@ static uint32 resolveHostName(const char *hostName);
 static int findFreeTargetSlot(void);
 static int findTargetSlot(BackendId backendid);
 static void releaseTargetSlot(int slot);
+static bool targetSlotOwnerIsLive(const dbgcomm_target_slot_t *slot);
 
 /**********************************************************************
  * Initialization routines
@@ -634,13 +636,16 @@ findFreeTargetSlot(void)
 	}
 
 	/*
-	 * All slots are taken. A backend that died in mid-handshake never
-	 * releases its slot (this also covers kill -9), so reclaim the first
-	 * slot whose owner is gone.
+	 * All slots are taken. A backend that exits in mid-handshake never
+	 * releases its slot, so reclaim the first slot whose owner is gone.
+	 *
+	 * Check PID and backend identity against the same process-array
+	 * snapshot. Checking the PID alone is not sufficient because the
+	 * operating system can reuse it.
 	 */
 	for (i = 0; i < NumTargetSlots; i++)
 	{
-		if (BackendPidGetProc(dbgcomm_slots[i].pid) == NULL)
+		if (!targetSlotOwnerIsLive(&dbgcomm_slots[i]))
 		{
 			elog(LOG, "reclaiming debugging target slot leaked by dead backend %d (pid %d)",
 				 dbgcomm_slots[i].backendid, dbgcomm_slots[i].pid);
@@ -648,6 +653,35 @@ findFreeTargetSlot(void)
 		}
 	}
 	return -1;
+}
+
+/*
+ * Check whether a slot still belongs to the backend currently using its PID.
+ */
+static bool
+targetSlotOwnerIsLive(const dbgcomm_target_slot_t *slot)
+{
+	PGPROC	   *owner;
+	bool		isLive;
+
+	if (slot->backendid == InvalidBackendId || slot->pid == 0)
+		return false;
+
+	LWLockAcquire(ProcArrayLock, LW_SHARED);
+	owner = BackendPidGetProcWithLock(slot->pid);
+	if (owner == NULL)
+		isLive = false;
+	else
+	{
+#if (PG_VERSION_NUM >= 170000)
+		isLive = GetNumberFromPGProc(owner) == slot->backendid;
+#else
+		isLive = owner->backendId == slot->backendid;
+#endif
+	}
+	LWLockRelease(ProcArrayLock);
+
+	return isLive;
 }
 
 /*
